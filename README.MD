@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/guiguegon/mapmodule.svg?branch=master)](https://travis-ci.org/guiguegon/mapmodule)
+[![](https://jitpack.io/v/guiguegon/MapModule.svg)](https://jitpack.io/#guiguegon/MapModule)
+
 # MapModule
 Just a simple activity that show a map
 Work in progress
