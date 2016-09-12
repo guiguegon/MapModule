@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="map_padding">64dp</dimen>
+    <dimen name="map_fab_margin">16dp</dimen>
+    <dimen name="map_status_bar_height">0dp</dimen>
+</resources>

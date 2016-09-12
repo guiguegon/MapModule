@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">MapModule</string>
+    <string name="map_toolbar_title">Map</string>
+    <string name="map_exception_necessary_permissions">Please, allow the app permissions in settings</string>
 </resources>

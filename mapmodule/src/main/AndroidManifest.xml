@@ -1,13 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="es.guiguegon.mapmodule">
 
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <uses-feature
+        android:glEsVersion="0x00020000"
+        android:required="true"/>
+
     <application
         android:allowBackup="true"
-        android:supportsRtl="true">
+        android:supportsRtl="true"
+        android:theme="@style/MapModuleAppTheme">
+
+        <meta-data
+            android:name="com.google.android.gms.version"
+            android:value="@integer/google_play_services_version"/>
 
         <activity
-            android:name="es.guiguegon.mapmodule.MapActivity"
-            android:theme="@style/Theme.AppCompat.NoActionBar"/>
+            android:name="es.guiguegon.mapmodule.MapActivity"/>
     </application>
 
 </manifest>

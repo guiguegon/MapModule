@@ -36,6 +36,4 @@ dependencies {
     compile project(':mapmodule')
     compile "com.android.support:appcompat-v7:$SUPPORT_LIBRARY_VERSION"
     compile "com.android.support:design:$SUPPORT_LIBRARY_VERSION"
-
-    testCompile 'junit:junit:4.12'
 }

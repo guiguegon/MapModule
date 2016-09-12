@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import es.guiguegon.mapmodule.MapActivity;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -21,7 +22,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void openMap() {
-        //startActivityForResult(GalleryActivity.getCallingIntent(this, multiselection), REQUEST_CODE_MAP);
+        startActivityForResult(MapActivity.getCallingIntent(this), REQUEST_CODE_MAP);
     }
 
     @Override
