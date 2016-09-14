@@ -11,6 +11,7 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.maps.android.SphericalUtil;
+import es.guiguegon.mapmodule.model.Place;
 
 public class LocationUtils {
 
@@ -50,6 +51,14 @@ public class LocationUtils {
                 .include(SphericalUtil.computeOffset(latLng, USER_LOCATION_RADIUS, 270))
                 .build();
         return latLngBounds;
+    }
+
+    public static String getFullAddress(Place place) {
+        if (place.hasAddress()) {
+            return getFullAddress(place.getAddress());
+        } else {
+            return place.getPosition().toString();
+        }
     }
 
     public static String getFullAddress(Address address) {

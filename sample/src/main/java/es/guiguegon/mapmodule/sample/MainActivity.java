@@ -5,7 +5,9 @@ import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.widget.Toast;
 import es.guiguegon.mapmodule.MapActivity;
+import es.guiguegon.mapmodule.model.Place;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -28,8 +30,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_CODE_MAP && resultCode == RESULT_OK) {
-            //Toast.makeText(this, "Gallery Media selected: " + galleryMedias.size(), Toast.LENGTH_LONG).show();
+        if (requestCode == REQUEST_CODE_MAP && resultCode == RESULT_OK && data != null && data.getExtras() != null) {
+            Place place = data.getExtras().getParcelable(MapActivity.RESULT_PLACE);
+            if (place != null) {
+                Toast.makeText(this, "Place selected: " + place.toString(), Toast.LENGTH_LONG).show();
+            }
         }
     }
 }

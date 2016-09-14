@@ -12,80 +12,87 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.maps.android.clustering.Cluster;
+import com.google.maps.android.clustering.ClusterManager;
+import com.google.maps.android.clustering.view.DefaultClusterRenderer;
 import es.guiguegon.mapmodule.R;
 import es.guiguegon.mapmodule.model.Place;
-import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 
 /**
  * Created by guiguegon on 23/10/2015.
  */
 public class GoogleMapHelper
-        implements OnMapReadyCallback, GoogleMap.OnMapLoadedCallback, GoogleMap.OnMapLongClickListener {
+        implements OnMapReadyCallback, GoogleMap.OnMapLoadedCallback, GoogleMap.OnMapLongClickListener,
+        GoogleMap.OnMapClickListener, ClusterManager.OnClusterItemClickListener<Place> {
 
-    public final static int SMALL_ZOOM = 7;
-    public final static int NORMAL_ZOOM = 15;
+    public final static int NORMAL_ZOOM = 14;
 
-    private static GoogleMapHelper mInstance;
+    private static GoogleMapHelper sInstance;
     private SupportMapFragment supportMapFragment;
+    private AppCompatActivity activity;
 
     private GoogleMap mMap;
-    private WeakReference<AppCompatActivity> activityWeak;
-    private WeakReference<GoogleMap.OnMapLongClickListener> onMapLongClickListenerWeak;
-    private WeakReference<GoogleMap.OnMapLoadedCallback> onMapLoadedListenerWeak;
+    private ClusterManager<Place> mClusterManager;
+
+    // listeners
+    private GoogleMap.OnMapLongClickListener onMapLongClickListener;
+    private GoogleMap.OnMapClickListener onMapClickListener;
+    private GoogleMap.OnMapLoadedCallback onMapLoadedListener;
+    private ClusterManager.OnClusterItemClickListener<Place> onClusterItemClickListener;
 
     private ArrayList<Place> places = new ArrayList<>();
-    private boolean isLoaded;
-
-    public static GoogleMapHelper getInstance() {
-        if (mInstance == null) {
-            mInstance = new GoogleMapHelper();
-        }
-        return mInstance;
-    }
 
     private GoogleMapHelper() {
     }
 
+    public static GoogleMapHelper getInstance() {
+        if (sInstance == null) {
+            sInstance = new GoogleMapHelper();
+        }
+        return sInstance;
+    }
+
     public void onStart(AppCompatActivity activity) {
-        activityWeak = new WeakReference<>(activity);
+        this.activity = activity;
     }
 
     public void onStop() {
-        activityWeak.clear();
-        activityWeak = null;
+        activity = null;
+        onMapClickListener = null;
+        onMapLoadedListener = null;
+        onMapClickListener = null;
+        onClusterItemClickListener = null;
     }
 
     public void setOnMapLoadedListener(GoogleMap.OnMapLoadedCallback onMapLoadedListener) {
-        this.onMapLoadedListenerWeak = new WeakReference<>(onMapLoadedListener);
+        this.onMapLoadedListener = onMapLoadedListener;
     }
 
-    public void setOnMapLongClickListener(GoogleMap.OnMapLongClickListener onMapLongClickListenerWeak) {
-        this.onMapLongClickListenerWeak = new WeakReference<>(onMapLongClickListenerWeak);
+    public void setOnMapLongClickListener(GoogleMap.OnMapLongClickListener onMapLongClickListener) {
+        this.onMapLongClickListener = onMapLongClickListener;
     }
 
-    public boolean isMapLoaded() {
-        return mMap != null && isLoaded;
+    public void setOnMapClickListener(GoogleMap.OnMapClickListener onMapClickListener) {
+        this.onMapClickListener = onMapClickListener;
+    }
+
+    public void setOnClusterItemClickListener(
+            ClusterManager.OnClusterItemClickListener<Place> onClusterItemClickListener) {
+        this.onClusterItemClickListener = onClusterItemClickListener;
     }
 
     private void initMapFragment() {
-        supportMapFragment = (SupportMapFragment) activityWeak.get()
-                .getSupportFragmentManager()
+        supportMapFragment = (SupportMapFragment) activity.getSupportFragmentManager()
                 .findFragmentByTag(SupportMapFragment.class.getSimpleName());
         if (supportMapFragment == null) {
             supportMapFragment = new SupportMapFragment();
         }
     }
 
-    public void loadMap(Place place, int mapResId) {
-        loadMap(mapResId);
-        addPlace(place);
-    }
-
     public void loadMap(int mapResId) {
         initMapFragment();
-        activityWeak.get()
-                .getSupportFragmentManager()
+        activity.getSupportFragmentManager()
                 .beginTransaction()
                 .replace(mapResId, supportMapFragment, SupportMapFragment.class.getSimpleName())
                 .commit();
@@ -100,9 +107,8 @@ public class GoogleMapHelper
 
     @Override
     public void onMapLoaded() {
-        isLoaded = true;
-        if (onMapLoadedListenerWeak != null && onMapLoadedListenerWeak.get() != null) {
-            onMapLoadedListenerWeak.get().onMapLoaded();
+        if (onMapLoadedListener != null) {
+            onMapLoadedListener.onMapLoaded();
         }
     }
 
@@ -113,16 +119,38 @@ public class GoogleMapHelper
             mMap.getUiSettings().setMyLocationButtonEnabled(false);
             mMap.setOnMapLoadedCallback(this);
             mMap.setOnMapLongClickListener(this);
+            mMap.setOnMapClickListener(this);
+            setupClusterManager();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public void addPlace(Place place) {
+    private void setupClusterManager() {
+        mClusterManager = new ClusterManager<>(activity, mMap);
+        mMap.setOnMarkerClickListener(mClusterManager);
+        mMap.setOnCameraIdleListener(mClusterManager);
+        mClusterManager.setOnClusterItemClickListener(this);
+        mClusterManager.setRenderer(new DefaultClusterRenderer<Place>(activity, mMap, mClusterManager) {
+            @Override
+            protected boolean shouldRenderAsCluster(Cluster cluster) {
+                return false;
+            }
+        });
+    }
+
+    private void refreshMap() {
+        mClusterManager.clearItems();
+        mClusterManager.cluster();
+        mClusterManager.addItems(places);
+        mClusterManager.cluster();
+    }
+
+    private void addPlace(Place place) {
         places.add(place);
     }
 
-    public void addPlace(ArrayList<Place> places) {
+    private void addPlace(ArrayList<Place> places) {
         this.places.addAll(places);
     }
 
@@ -132,15 +160,17 @@ public class GoogleMapHelper
 
     public void paintMarker(Place place) {
         addPlace(place);
+        refreshMap();
         animateCamera(place.getPosition());
     }
 
     public void paintMarker(ArrayList<Place> places) {
         addPlace(places);
+        refreshMap();
         animateCamera(generateLatLngBoundsFromMarkers());
     }
 
-    public LatLngBounds generateLatLngBoundsFromMarkers() {
+    private LatLngBounds generateLatLngBoundsFromMarkers() {
         LatLngBounds.Builder builder = new LatLngBounds.Builder();
         for (Place place : places) {
             builder.include(place.getPosition());
@@ -158,7 +188,7 @@ public class GoogleMapHelper
 
     public void moveCamera(LatLngBounds latLngBounds) {
         mMap.moveCamera(CameraUpdateFactory.newLatLngBounds(latLngBounds,
-                (int) activityWeak.get().getResources().getDimension(R.dimen.map_padding)));
+                (int) activity.getResources().getDimension(R.dimen.map_padding)));
     }
 
     public void animateCamera(Location location) {
@@ -176,19 +206,10 @@ public class GoogleMapHelper
 
     public void animateCamera(LatLngBounds latLngBounds) {
         mMap.animateCamera(CameraUpdateFactory.newLatLngBounds(latLngBounds,
-                (int) activityWeak.get().getResources().getDimension(R.dimen.map_padding)));
+                (int) activity.getResources().getDimension(R.dimen.map_padding)));
     }
 
-    @Override
-    public void onMapLongClick(LatLng latLng) {
-        if (onMapLongClickListenerWeak != null
-                && onMapLongClickListenerWeak.get() != null
-                && onMapLongClickListenerWeak != null
-                && onMapLongClickListenerWeak.get() != null) {
-            onMapLongClickListenerWeak.get().onMapLongClick(latLng);
-        }
-    }
-
+    // My position
     public void initMyPosition() {
         checkPermission();
     }
@@ -211,6 +232,29 @@ public class GoogleMapHelper
             return;
         }
         mMap.setMyLocationEnabled(true);
+    }
+
+    // Click listeners
+    @Override
+    public void onMapLongClick(LatLng latLng) {
+        if (onMapLongClickListener != null) {
+            onMapLongClickListener.onMapLongClick(latLng);
+        }
+    }
+
+    @Override
+    public void onMapClick(LatLng latLng) {
+        if (onMapClickListener != null) {
+            onMapClickListener.onMapClick(latLng);
+        }
+    }
+
+    @Override
+    public boolean onClusterItemClick(Place place) {
+        if (onClusterItemClickListener != null) {
+            onClusterItemClickListener.onClusterItemClick(place);
+        }
+        return false;
     }
 }
 

@@ -2,9 +2,9 @@ package es.guiguegon.mapmodule.helpers;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -15,9 +15,12 @@ import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.model.LatLng;
-import java.lang.ref.WeakReference;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
+import rx.Observable;
+import rx.android.schedulers.AndroidSchedulers;
+import rx.schedulers.Schedulers;
 
 /**
  * Created by guiguegon on 23/10/2015.
@@ -27,20 +30,21 @@ public class LocationHelper implements GoogleApiClient.ConnectionCallbacks, Goog
     private static final int MAX_RESULTS = 5;
     private static final long TWO_MINUTES = 2 * 60 * 1000;
 
-    private static LocationHelper mInstance;
-    private WeakReference<AppCompatActivity> activityWeak;
+    private static LocationHelper sInstance;
+    private AppCompatActivity activity;
 
     // Google Api vars
     private GoogleApiClient mGoogleApiClient;
+    private LocationHelperListener locationHelperListener;
 
     private LocationHelper() {
     }
 
     public static LocationHelper getInstance() {
-        if (mInstance == null) {
-            mInstance = new LocationHelper();
+        if (sInstance == null) {
+            sInstance = new LocationHelper();
         }
-        return mInstance;
+        return sInstance;
     }
 
     public static boolean isLocationValid(Location location) {
@@ -48,21 +52,25 @@ public class LocationHelper implements GoogleApiClient.ConnectionCallbacks, Goog
         return timeDelta <= TWO_MINUTES;
     }
 
+    public void setLocationHelperListener(LocationHelperListener locationHelperListener) {
+        this.locationHelperListener = locationHelperListener;
+    }
+
     public void onStart(AppCompatActivity activity) {
-        activityWeak = new WeakReference<>(activity);
+        this.activity = activity;
         initGoogleApiClient();
         connect();
     }
 
     public void onStop() {
-        activityWeak.clear();
-        activityWeak = null;
+        activity = null;
+        locationHelperListener = null;
         disconnect();
     }
 
     private void initGoogleApiClient() {
         if (mGoogleApiClient == null) {
-            mGoogleApiClient = new GoogleApiClient.Builder(activityWeak.get()).addConnectionCallbacks(this)
+            mGoogleApiClient = new GoogleApiClient.Builder(activity).addConnectionCallbacks(this)
                     .addOnConnectionFailedListener(this)
                     .addApi(LocationServices.API)
                     .build();
@@ -89,42 +97,66 @@ public class LocationHelper implements GoogleApiClient.ConnectionCallbacks, Goog
         }
     }
 
-    public void getLocationFromAddress(final String address) {
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Geocoder geocoder = new Geocoder(activityWeak.get(), Locale.getDefault());
-                    geocoder.getFromLocationName(address, MAX_RESULTS);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
+    //<editor-fold desc="get location from address">
+    public void getLocationFromAddressAsync(final String address) {
+        final Observable<List<Address>> observable =
+                Observable.create((Observable.OnSubscribe<List<Address>>) subscriber -> {
+                    subscriber.onNext(getLocationFromAddress(address));
+                    subscriber.onCompleted();
+                }).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread());
+        observable.subscribe(this::onGotAddress, this::onError);
     }
 
-    public void getLocationFromLatLng(final LatLng latLng) {
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Geocoder geocoder = new Geocoder(activityWeak.get(), Locale.getDefault());
-                    geocoder.getFromLocation(latLng.latitude, latLng.longitude, MAX_RESULTS);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        });
+    private List<Address> getLocationFromAddress(final String address) {
+        try {
+            Geocoder geocoder = new Geocoder(activity, Locale.getDefault());
+            return geocoder.getFromLocationName(address, MAX_RESULTS);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
+
+    public void getLocationFromLatLngAsync(final LatLng latLng) {
+        final Observable<List<Address>> observable =
+                Observable.create((Observable.OnSubscribe<List<Address>>) subscriber -> {
+                    subscriber.onNext(getLocationFromLatLng(latLng));
+                    subscriber.onCompleted();
+                }).subscribeOn(Schedulers.io()).observeOn(AndroidSchedulers.mainThread());
+        observable.subscribe(this::onGotAddress, this::onError);
+    }
+
+    private List<Address> getLocationFromLatLng(final LatLng latLng) {
+        try {
+            Geocoder geocoder = new Geocoder(activity, Locale.getDefault());
+            return geocoder.getFromLocation(latLng.latitude, latLng.longitude, MAX_RESULTS);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    private void onError(Throwable throwable) {
+        if (locationHelperListener != null) {
+            locationHelperListener.onError();
+        }
+    }
+
+    private void onGotAddress(List<Address> addresses) {
+        if (locationHelperListener != null) {
+            locationHelperListener.onGotAddress(addresses);
+        }
+    }
+    //</editor-fold>
 
     public void requestLocationUpdate(ViewGroup root, LocationRequest locationRequest,
             final LocationListener locationListener) {
         try {
-            if (mGoogleApiClient.isConnected() && activityWeak != null && activityWeak.get() != null) {
-                if (ActivityCompat.checkSelfPermission(activityWeak.get(), Manifest.permission.ACCESS_FINE_LOCATION)
+            if (mGoogleApiClient.isConnected() && activity != null) {
+                if (ActivityCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION)
                         != PackageManager.PERMISSION_GRANTED
-                        || ActivityCompat.checkSelfPermission(activityWeak.get(),
-                        Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                        || ActivityCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_COARSE_LOCATION)
+                        != PackageManager.PERMISSION_GRANTED) {
                     checkPermission(root, locationRequest, locationListener);
                 }
                 Location location = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
@@ -162,5 +194,11 @@ public class LocationHelper implements GoogleApiClient.ConnectionCallbacks, Goog
 
     @Override
     public void onConnectionFailed(ConnectionResult connectionResult) {
+    }
+
+    public interface LocationHelperListener {
+        void onGotAddress(List<Address> addresses);
+
+        void onError();
     }
 }
