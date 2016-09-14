@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/guiguegon/mapmodule.svg?branch=master)](https://travis-ci.org/guiguegon/mapmodule)
+[![Build Status](https://travis-ci.org/guiguegon/MapModule.svg?branch=master)](https://travis-ci.org/guiguegon/MapModule)
 [![](https://jitpack.io/v/guiguegon/MapModule.svg)](https://jitpack.io/#guiguegon/MapModule)
 
 # MapModule
